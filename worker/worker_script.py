@@ -67,7 +67,8 @@ def get_metadata():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'web_embedded', 'web'],
+                'player_client': ['tv', 'web_embedded'],
+                'player_skip': ['webpage', 'configs'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -129,7 +130,8 @@ def run_download():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'web_embedded', 'web'],
+                'player_client': ['tv', 'web_embedded'],
+                'player_skip': ['webpage', 'configs'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
