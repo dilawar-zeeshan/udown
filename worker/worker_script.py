@@ -2,6 +2,7 @@ import os
 import uuid
 import datetime
 import yt_dlp
+import subprocess
 from supabase import create_client, Client
 
 # Configuration from Environment (GitHub Secrets/Inputs)
@@ -51,14 +52,22 @@ def progress_hook(d):
 
 def get_metadata():
     print(f"🔍 Fetching info for {URL}...")
+    
+    # Verification of environment
+    try:
+        node_v = subprocess.check_output(["node", "--version"]).decode().strip()
+        print(f"DEBUG: Node version in script: {node_v}")
+    except Exception as e:
+        print(f"DEBUG: Node not found by script: {e}")
+
     ydl_opts = {
         'no_playlist': True,
-        'quiet': True,
+        'quiet': False,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'web_embedded'],
+                'player_client': ['tv_embedded', 'web_embedded', 'web'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -73,7 +82,7 @@ def get_metadata():
         with open(cookie_file, "w") as f:
             f.write(YOUTUBE_COOKIES)
         ydl_opts['cookiefile'] = cookie_file
-        print(f"DEBUG: Created cookie file: {cookie_file} (exists: {os.path.exists(cookie_file)})")
+        print(f"DEBUG: Created cookie file: {cookie_file}")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -82,19 +91,21 @@ def get_metadata():
                 "title": info.get("title"),
                 "thumbnail": info.get("thumbnail"),
                 "duration": info.get("duration"),
-                "formats": [
-                    {
+                "formats": []
+            }
+            
+            # More permissive format listing
+            for f in info.get("formats", []):
+                if f.get("vcodec") != "none":
+                    metadata["formats"].append({
                         "format_id": f.get("format_id"),
                         "quality": f.get("format_note") or f.get("resolution"),
                         "ext": f.get("ext"),
                         "filesize": f.get("filesize") or f.get("filesize_approx")
-                    }
-                    for f in info.get("formats", [])
-                    if f.get("vcodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "mp4")
-                ]
-            }
+                    })
+            
             update_job("awaiting_format", {"video_metadata": metadata})
-            print("✅ Metadata uploaded to Supabase.")
+            print(f"✅ Metadata uploaded. Found {len(metadata['formats'])} formats.")
     finally:
         if cookie_file and os.path.exists(cookie_file):
             os.remove(cookie_file)
@@ -118,22 +129,19 @@ def run_download():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'web_embedded'],
+                'player_client': ['tv_embedded', 'web_embedded', 'web'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
         }
     }
     
-    print(f"DEBUG: YOUTUBE_COOKIES env length: {len(YOUTUBE_COOKIES) if YOUTUBE_COOKIES else 'MISSING'}")
-
     cookie_file = None
     if YOUTUBE_COOKIES:
         cookie_file = "cookies_dl.txt"
         with open(cookie_file, "w") as f:
             f.write(YOUTUBE_COOKIES)
         ydl_opts['cookiefile'] = cookie_file
-        print(f"DEBUG: Created cookie file: {cookie_file} (exists: {os.path.exists(cookie_file)})")
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
