@@ -58,7 +58,7 @@ def get_metadata():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'web_embedded'],
+                'player_client': ['web', 'web_embedded'],
                 'player_skip': ['webpage', 'configs'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
@@ -66,12 +66,15 @@ def get_metadata():
         }
     }
     
+    print(f"DEBUG: YOUTUBE_COOKIES env length: {len(YOUTUBE_COOKIES) if YOUTUBE_COOKIES else 'MISSING'}")
+    
     cookie_file = None
     if YOUTUBE_COOKIES:
         cookie_file = "cookies.txt"
         with open(cookie_file, "w") as f:
             f.write(YOUTUBE_COOKIES)
         ydl_opts['cookiefile'] = cookie_file
+        print(f"DEBUG: Created cookie file: {cookie_file} (exists: {os.path.exists(cookie_file)})")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -116,7 +119,7 @@ def run_download():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'web_embedded'],
+                'player_client': ['web', 'web_embedded'],
                 'player_skip': ['webpage', 'configs'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
@@ -124,12 +127,15 @@ def run_download():
         }
     }
     
+    print(f"DEBUG: YOUTUBE_COOKIES env length: {len(YOUTUBE_COOKIES) if YOUTUBE_COOKIES else 'MISSING'}")
+
     cookie_file = None
     if YOUTUBE_COOKIES:
         cookie_file = "cookies_dl.txt"
         with open(cookie_file, "w") as f:
             f.write(YOUTUBE_COOKIES)
         ydl_opts['cookiefile'] = cookie_file
+        print(f"DEBUG: Created cookie file: {cookie_file} (exists: {os.path.exists(cookie_file)})")
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
