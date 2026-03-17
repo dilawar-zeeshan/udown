@@ -58,7 +58,7 @@ def get_metadata():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'mweb', 'android'],
+                'player_client': ['tv_embedded', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -118,7 +118,7 @@ def run_download():
         'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'mweb', 'android'],
+                'player_client': ['tv_embedded', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
