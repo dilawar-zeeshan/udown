@@ -54,10 +54,13 @@ def get_metadata():
         'no_playlist': True,
         'quiet': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['web_embedded', 'ios', 'tv_embedded', 'android'],
-                'player_skip': ['webpage', 'configs']
+                'player_client': ['android', 'ios', 'web_embedded'],
+                'player_skip': ['webpage', 'configs'],
+                'include_dash_manifest': True,
+                'include_hls_manifest': True
             }
         }
     }
@@ -97,10 +100,13 @@ def run_download():
         'no_playlist': True,
         'progress_hooks': [progress_hook],
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'referer': 'https://www.google.com/',
         'extractor_args': {
             'youtube': {
-                'player_client': ['web_embedded', 'ios', 'tv_embedded', 'android'],
-                'player_skip': ['webpage', 'configs']
+                'player_client': ['android', 'ios', 'web_embedded'],
+                'player_skip': ['webpage', 'configs'],
+                'include_dash_manifest': True,
+                'include_hls_manifest': True
             }
         }
     }
