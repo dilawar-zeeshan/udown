@@ -1,5 +1,6 @@
 import os
 import uuid
+import datetime
 import yt_dlp
 from supabase import create_client, Client
 
@@ -10,12 +11,28 @@ JOB_ID = os.getenv("JOB_ID")
 URL = os.getenv("VIDEO_URL")
 MODE = os.getenv("MODE") # info or download
 FORMAT_ID = os.getenv("FORMAT_ID")
+SESSION_ID = os.getenv("SESSION_ID") or "default"
 STORAGE_BUCKET = "video"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def cleanup_session_storage():
+    """Deletes all files in the current session's folder to save space."""
+    try:
+        folder_path = f"temp/{SESSION_ID}"
+        files = supabase.storage.from_(STORAGE_BUCKET).list(folder_path)
+        if files:
+            file_paths = [f"{folder_path}/{f['name']}" for f in files]
+            supabase.storage.from_(STORAGE_BUCKET).remove(file_paths)
+            print(f"🧹 Cleaned up {len(file_paths)} files from session {SESSION_ID}")
+    except Exception as e:
+        print(f"⚠️ Session cleanup failed (might be empty): {e}")
+
 def update_job(status, data=None):
-    payload = {"status": status, "updated_at": "now()"}
+    payload = {
+        "status": status, 
+        "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
     if data:
         payload.update(data)
     supabase.table("downloads_queue").update(payload).eq("id", JOB_ID).execute()
@@ -57,8 +74,11 @@ def run_download():
     print(f"🚀 Downloading {URL} [Format: {FORMAT_ID}]...")
     update_job("processing")
     
+    # Pre-download cleanup to save space
+    cleanup_session_storage()
+    
     local_filename = f"{uuid.uuid4()}.mp4"
-    storage_path = f"downloads/{local_filename}"
+    storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
     ydl_opts = {
         'format': FORMAT_ID if FORMAT_ID else 'best',
