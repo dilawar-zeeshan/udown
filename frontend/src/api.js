@@ -27,7 +27,7 @@ const pollJob = async (jobId, targetStatus, onProgress, maxAttempts = 30) => {
     const job = data[0];
     
     if (job) {
-      if (onProgress) onProgress(job.status);
+      if (onProgress) onProgress(job);
       if (job.status === targetStatus || job.status === 'done') return job;
       if (job.status === 'failed') throw new Error(job.error_message || 'Job failed');
     }

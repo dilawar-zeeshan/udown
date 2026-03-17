@@ -17,6 +17,7 @@ function App() {
   const [videoData, setVideoData] = useState(null);
   const [error, setError] = useState('');
   const [status, setStatus] = useState(null);
+  const [jobData, setJobData] = useState(null);
 
   const handleFetchInfo = async (e) => {
     e.preventDefault();
@@ -28,7 +29,10 @@ function App() {
     setStatus('pending_info');
 
     try {
-      const data = await getVideoInfo(url, (newStatus) => setStatus(newStatus));
+      const data = await getVideoInfo(url, (job) => {
+        setStatus(job.status || job);
+        if (job.progress !== undefined) setJobData(job);
+      });
       setVideoData(data);
     } catch (err) {
       setError(err);
@@ -43,7 +47,10 @@ function App() {
     setDownloading(formatId);
     setStatus('pending_download');
     try {
-      await downloadVideo(url, formatId, videoData.job_id, videoData.title, (newStatus) => setStatus(newStatus));
+      await downloadVideo(url, formatId, videoData.job_id, videoData.title, (job) => {
+        setStatus(job.status || job);
+        if (job.progress !== undefined) setJobData(job);
+      });
       setStatus('done');
     } catch (err) {
       setError(err);
@@ -122,6 +129,35 @@ function App() {
               <span className="text-xl">{STATUS_CONFIG[status]?.icon}</span>
               {STATUS_CONFIG[status]?.label}
               {loading && <div className="flex gap-1"><span className="animate-bounce">.</span><span className="animate-bounce delay-100">.</span><span className="animate-bounce delay-200">.</span></div>}
+            </div>
+          )}
+
+          
+          {/* Progress Bar for Downloads */}
+          {status === 'processing' && jobData?.progress !== undefined && (
+            <div className="space-y-3 animate-fade-in">
+              <div className="flex justify-between items-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Downloading...</span>
+                <span className="text-sm font-black text-white">{jobData.progress}%</span>
+              </div>
+              <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-500 ease-out"
+                  style={{ width: `${jobData.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+          
+          {status === 'uploading' && (
+            <div className="space-y-3 animate-fade-in">
+              <div className="flex justify-between items-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Finalizing Link...</span>
+                <span className="text-sm font-black text-white italic">Wait a sec</span>
+              </div>
+              <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div className="h-full bg-indigo-500 animate-pulse w-full" />
+              </div>
             </div>
           )}
 

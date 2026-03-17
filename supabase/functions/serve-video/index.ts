@@ -57,6 +57,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'video/mp4',
+        'Content-Length': fileData.size.toString(),
         'Content-Disposition': `attachment; filename="video.mp4"`
       }
     })
