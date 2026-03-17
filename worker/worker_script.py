@@ -44,13 +44,24 @@ def expand_url(url):
     return url
 
 def get_base_opts():
-    """Ultra-clean options to let yt-dlp handle UAs and Referers."""
+    """Options optimized for POT providers and signature solving."""
     opts = {
         'no_playlist': True,
         'quiet': False,
-        'verbose': True, # CRITICAL FOR DEBUGGING
+        'verbose': True,
         'javascript_executable': 'node',
         'nocheckcertificate': True,
+        # Enable the POT providers
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'web_embedded'],
+                'include_dash_manifest': True,
+                'include_hls_manifest': True,
+                # These extractor-args trigger the POT provider plugins
+                'po_token': ['auto'],
+                'data_sync_id': ['auto']
+            }
+        }
     }
     if YOUTUBE_COOKIES:
         with open("cookies.txt", "w") as f:
@@ -58,49 +69,21 @@ def get_base_opts():
         opts['cookiefile'] = "cookies.txt"
     return opts
 
-def run_extraction_attempt(clients, use_cookies=True):
-    target_url = expand_url(URL)
-    opts = get_base_opts()
-    if not use_cookies:
-        opts.pop('cookiefile', None)
-    
-    opts['extractor_args'] = {
-        'youtube': {
-            'player_client': clients,
-            'include_dash_manifest': True,
-            'include_hls_manifest': True
-        }
-    }
-    
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        return ydl.extract_info(target_url, download=False)
-
 def get_metadata():
-    print(f"🔍 [METADATA] Analysis for {URL}")
+    print(f"🔍 [METADATA] POT-Enabled Discovery for {URL}")
+    target_url = expand_url(URL)
     
-    # Check if node is actually responsive to yt-dlp
+    # Verify Node for the logs
     try:
         node_v = subprocess.check_output(["node", "--version"]).decode().strip()
         print(f"DEBUG: Node Version: {node_v}")
     except:
-        print("CRITICAL: Node.js is MISSING.")
+        print("CRITICAL: Node.js MISSING.")
 
-    strategies = [
-        # Stage 1: The 'Golden' TV client (No Cookies) - Often bypasses all blocks for Music
-        {"name": "TV_Public", "clients": ["tv"], "cookies": False},
-        # Stage 2: Android VR (Extremely permissive, often forgotten by YouTube filters)
-        {"name": "Android_VR", "clients": ["android_vr"], "cookies": False},
-        # Stage 3: iOS with Cookies (Trusted Identity)
-        {"name": "iOS_Private", "clients": ["ios"], "cookies": True},
-        # Stage 4: Web Embedded (Standard Fallback)
-        {"name": "Web_Embedded", "clients": ["web_embedded"], "cookies": True}
-    ]
-
-    last_error = "Unknown"
-    for strategy in strategies:
-        try:
-            print(f"🛠️ Attempting {strategy['name']}...")
-            info = run_extraction_attempt(strategy['clients'], strategy['cookies'])
+    try:
+        opts = get_base_opts()
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(target_url, download=False)
             
             metadata = {
                 "title": info.get("title"),
@@ -109,14 +92,8 @@ def get_metadata():
                 "formats": []
             }
             
-            # Print all format IDs found for debugging
-            formats = info.get("formats", [])
-            print(f"DEBUG: Found {len(formats)} total formats.")
-            
-            for f in formats:
-                # We want formats with video (even if premium, we can try)
-                is_video = f.get("vcodec") != "none"
-                if is_video:
+            for f in info.get("formats", []):
+                if f.get("vcodec") != "none":
                     metadata["formats"].append({
                         "format_id": f.get("format_id"),
                         "quality": f.get("format_note") or f.get("resolution"),
@@ -125,75 +102,52 @@ def get_metadata():
                     })
             
             if not metadata["formats"]:
-                print(f"⚠️ {strategy['name']} returned no video formats.")
-                continue
+                raise Exception("POT Provider failed to unblock video formats.")
                 
             update_job("awaiting_format", {"video_metadata": metadata})
-            print(f"✅ Success with {strategy['name']}")
-            return
-        except Exception as e:
-            last_error = str(e)
-            print(f"❌ {strategy['name']} failed: {e}")
-
-    update_job("failed", {"error_message": f"Global YouTube Block: {last_error}"})
+            print(f"✅ SUCCESS! Metadata uploaded with POT protection.")
+    except Exception as e:
+        print(f"❌ POT Extraction failed: {e}")
+        update_job("failed", {"error_message": f"POT Block: {str(e)}"})
 
 def run_download():
-    print(f"🚀 [DOWNLOAD] Starting Stage Download for {URL}...")
+    print(f"🚀 [DOWNLOAD] Starting POT-Protected Download for {URL}...")
     update_job("processing")
     
     target_url = expand_url(URL)
     local_filename = f"{uuid.uuid4()}.mp4"
     storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
-    # We use the same strategy list for downloading
-    strategies = [
-        {"clients": ["tv"], "cookies": False},
-        {"clients": ["android_vr"], "cookies": False},
-        {"clients": ["ios"], "cookies": True},
-        {"clients": ["web_embedded"], "cookies": True}
-    ]
-
-    for strategy in strategies:
-        try:
-            print(f"🛠️ Downloading with {strategy['clients']} (Cookies: {strategy['cookies']})...")
-            opts = get_base_opts()
-            if not strategy['cookies']: opts.pop('cookiefile', None)
+    try:
+        opts = get_base_opts()
+        opts.update({
+            'format': FORMAT_ID if FORMAT_ID else 'best',
+            'outtmpl': local_filename,
+            'progress_hooks': [progress_hook]
+        })
+        
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([target_url])
+        
+        print(f"📦 Uploading Final Video...")
+        supabase.table("downloads_queue").update({"status": "uploading", "progress": 100}).eq("id", JOB_ID).execute()
+        
+        with open(local_filename, 'rb') as f:
+            supabase.storage.from_(STORAGE_BUCKET).upload(
+                path=storage_path,
+                file=f,
+                file_options={"content-type": "video/mp4"}
+            )
             
-            opts.update({
-                'format': FORMAT_ID if FORMAT_ID else 'best',
-                'outtmpl': local_filename,
-                'progress_hooks': [progress_hook],
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': strategy['clients'],
-                        'include_dash_manifest': True,
-                        'include_hls_manifest': True
-                    }
-                }
-            })
-            
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([target_url])
-            
-            print(f"📦 Uploading Final Video...")
-            supabase.table("downloads_queue").update({"status": "uploading", "progress": 100}).eq("id", JOB_ID).execute()
-            
-            with open(local_filename, 'rb') as f:
-                supabase.storage.from_(STORAGE_BUCKET).upload(
-                    path=storage_path,
-                    file=f,
-                    file_options={"content-type": "video/mp4"}
-                )
-                
-            public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-            update_job("done", {"result_url": public_url})
-            print(f"✅ Download Finished! {public_url}")
-            return
-        except Exception as e:
-            print(f"❌ Attempt failed: {str(e)[:100]}")
-            if os.path.exists(local_filename): os.remove(local_filename)
-
-    raise Exception("Download failed - all clients blocked by YouTube security.")
+        public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
+        update_job("done", {"result_url": public_url})
+        print(f"✅ Download Finished! {public_url}")
+    except Exception as e:
+        print(f"❌ POT Download failed: {e}")
+        update_job("failed", {"error_message": str(e)})
+    finally:
+        if os.path.exists(local_filename): os.remove(local_filename)
+        if os.path.exists("cookies.txt"): os.remove("cookies.txt")
 
 def main():
     if not JOB_ID or not URL: return
