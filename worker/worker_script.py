@@ -3,7 +3,6 @@ import uuid
 import datetime
 import yt_dlp
 import subprocess
-import re
 from supabase import create_client, Client
 
 # Configuration from Environment (GitHub Secrets/Inputs)
@@ -19,18 +18,6 @@ STORAGE_BUCKET = "video"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def cleanup_session_storage():
-    """Deletes all files in the current session's folder to save space."""
-    try:
-        folder_path = f"temp/{SESSION_ID}"
-        files = supabase.storage.from_(STORAGE_BUCKET).list(folder_path)
-        if files:
-            file_paths = [f"{folder_path}/{f['name']}" for f in files]
-            supabase.storage.from_(STORAGE_BUCKET).remove(file_paths)
-            print(f"🧹 Cleaned up {len(file_paths)} files from session {SESSION_ID}")
-    except Exception as e:
-        print(f"⚠️ Session cleanup failed (might be empty): {e}")
-
 def update_job(status, data=None):
     payload = {
         "status": status, 
@@ -45,135 +32,153 @@ def progress_hook(d):
         try:
             p = d.get('_percent_str', '0%').replace('%','')
             progress = int(float(p))
-            # Update every 10% to avoid spamming the DB
             if progress % 10 == 0:
                 supabase.table("downloads_queue").update({"progress": progress}).eq("id", JOB_ID).execute()
         except:
             pass
 
 def expand_url(url):
-    """Expands youtu.be URLs to full watch URLs."""
     if "youtu.be/" in url:
         video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
         return f"https://www.youtube.com/watch?v={video_id}"
     return url
 
-def get_best_ydl_opts(use_cookies=True, clients=None):
-    """Returns the best ydl options for the current environment."""
-    if clients is None:
-        clients = ['tv', 'web_embedded', 'android']
-    
+def get_base_opts():
+    """Base options that prioritize signature solving and stealth."""
     opts = {
         'no_playlist': True,
         'quiet': False,
         'no_warnings': False,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        # Explicitly point to node for signature solving
+        'javascript_executable': 'node',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
         'referer': 'https://www.google.com/',
-        'extractor_args': {
-            'youtube': {
-                'player_client': clients,
-                'include_dash_manifest': True,
-                'include_hls_manifest': True
-            }
+        'nocheckcertificate': True,
+    }
+    if YOUTUBE_COOKIES:
+        with open("cookies.txt", "w") as f:
+            f.write(YOUTUBE_COOKIES)
+        opts['cookiefile'] = "cookies.txt"
+    return opts
+
+def run_extraction_attempt(clients, use_cookies=True):
+    """Tries a specific set of clients with/without cookies."""
+    target_url = expand_url(URL)
+    opts = get_base_opts()
+    if not use_cookies:
+        opts.pop('cookiefile', None)
+    
+    opts['extractor_args'] = {
+        'youtube': {
+            'player_client': clients,
+            'include_dash_manifest': True,
+            'include_hls_manifest': True,
+            'player_skip': ['configs'] # Skip configs but NOT webpage to avoid PO Token blocks
         }
     }
     
-    if use_cookies and YOUTUBE_COOKIES:
-        cookie_file = "cookies.txt"
-        with open(cookie_file, "w") as f:
-            f.write(YOUTUBE_COOKIES)
-        opts['cookiefile'] = cookie_file
-        
-    return opts
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        return ydl.extract_info(target_url, download=False)
 
 def get_metadata():
-    target_url = expand_url(URL)
-    print(f"🔍 Fetching info for {target_url}...")
+    print(f"🔍 [METADATA] Starting Nuclear Bypass Discovery for {URL}")
     
-    # Check Node.js for signature solving
+    # Verify Node for the logs
     try:
         node_v = subprocess.check_output(["node", "--version"]).decode().strip()
-        print(f"DEBUG: Node version: {node_v}")
+        print(f"DEBUG: Node confirmed at: {node_v}")
     except:
-        print("DEBUG: Node.js NOT FOUND. Signature solving will likely fail.")
+        print("CRITICAL: Node.js is MISSING. Signatures will fail.")
 
-    # Strategy 1: TV client WITHOUT cookies (often bypasses PO Token)
-    print("DEBUG: Strategy 1 - TV/Android client (No Cookies)...")
-    try:
-        ydl_opts = get_best_ydl_opts(use_cookies=False, clients=['tv', 'android'])
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
-            process_info(info)
+    strategies = [
+        # Strategy A: TV client (No Cookies) - Often bypasses PO Token perfectly
+        {"name": "TV Public", "clients": ["tv"], "cookies": False},
+        # Strategy B: Android client (No Cookies) - Good fallback for music
+        {"name": "Android Public", "clients": ["android"], "cookies": False},
+        # Strategy C: Web Embedded (With Cookies) - Use user identity
+        {"name": "Web Embedded Private", "clients": ["web_embedded"], "cookies": True},
+        # Strategy D: IOS client (With Cookies) - High-level trust
+        {"name": "IOS Private", "clients": ["ios"], "cookies": True},
+        # Strategy E: Full Web (Absolute Fallback)
+        {"name": "Full Web Fallback", "clients": ["web"], "cookies": True}
+    ]
+
+    last_error = "Unknown Error"
+    for strategy in strategies:
+        try:
+            print(f"🛠️ Trying Strategy: {strategy['name']}...")
+            info = run_extraction_attempt(strategy['clients'], strategy['cookies'])
+            
+            # Process success
+            metadata = {
+                "title": info.get("title"),
+                "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration"),
+                "formats": []
+            }
+            
+            for f in info.get("formats", []):
+                if f.get("vcodec") != "none":
+                    metadata["formats"].append({
+                        "format_id": f.get("format_id"),
+                        "quality": f.get("format_note") or f.get("resolution"),
+                        "ext": f.get("ext"),
+                        "filesize": f.get("filesize") or f.get("filesize_approx")
+                    })
+            
+            if not metadata["formats"]:
+                print(f"⚠️ Strategy {strategy['name']} returned no formats. Skipping...")
+                continue
+                
+            update_job("awaiting_format", {"video_metadata": metadata})
+            print(f"✅ SUCCESS using {strategy['name']}! Metadata uploaded.")
             return
-    except Exception as e:
-        print(f"DEBUG: Strategy 1 failed: {e}")
+        except Exception as e:
+            last_error = str(e)
+            print(f"❌ Strategy {strategy['name']} failed: {e}")
 
-    # Strategy 2: Web client WITH cookies (Standard fallback)
-    print("DEBUG: Strategy 2 - Web client (With Cookies)...")
-    try:
-        ydl_opts = get_best_ydl_opts(use_cookies=True, clients=['web', 'web_embedded'])
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
-            process_info(info)
-            return
-    except Exception as e:
-        print(f"DEBUG: Strategy 2 failed: {e}")
-        
-    # Final Error
-    raise Exception("All bypass strategies failed. YouTube is heavily restricting this video on GitHub.")
-
-def process_info(info):
-    metadata = {
-        "title": info.get("title"),
-        "thumbnail": info.get("thumbnail"),
-        "duration": info.get("duration"),
-        "formats": []
-    }
-    
-    for f in info.get("formats", []):
-        if f.get("vcodec") != "none":
-            metadata["formats"].append({
-                "format_id": f.get("format_id"),
-                "quality": f.get("format_note") or f.get("resolution"),
-                "ext": f.get("ext"),
-                "filesize": f.get("filesize") or f.get("filesize_approx")
-            })
-    
-    if not metadata["formats"]:
-        raise Exception("No downloadable video formats found for this video.")
-        
-    update_job("awaiting_format", {"video_metadata": metadata})
-    print(f"✅ Metadata uploaded. Found {len(metadata['formats'])} formats.")
+    update_job("failed", {"error_message": f"Global Block: {last_error}"})
+    print("💀 All Nuclear Strategies Exhausted.")
 
 def run_download():
-    target_url = expand_url(URL)
-    print(f"🚀 Downloading {target_url} [Format: {FORMAT_ID}]...")
+    # Same staged approach for the actual download
+    print(f"🚀 [DOWNLOAD] Starting Stage Download for {URL}...")
     update_job("processing")
     
-    cleanup_session_storage()
-    
+    target_url = expand_url(URL)
     local_filename = f"{uuid.uuid4()}.mp4"
     storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
-    # Use the client roulette even for download to ensure we get the stream
     strategies = [
-        (False, ['tv', 'android']),
-        (True, ['web', 'web_embedded'])
+        {"clients": ["tv"], "cookies": False},
+        {"clients": ["android"], "cookies": False},
+        {"clients": ["web_embedded"], "cookies": True},
+        {"clients": ["ios"], "cookies": True}
     ]
-    
-    last_error = None
-    for use_cookies, clients in strategies:
+
+    for strategy in strategies:
         try:
-            ydl_opts = get_best_ydl_opts(use_cookies=use_cookies, clients=clients)
-            ydl_opts.update({
+            print(f"🛠️ Attempting download with {strategy['clients']} (Cookies: {strategy['cookies']})...")
+            opts = get_base_opts()
+            if not strategy['cookies']: opts.pop('cookiefile', None)
+            
+            opts.update({
                 'format': FORMAT_ID if FORMAT_ID else 'best',
                 'outtmpl': local_filename,
                 'progress_hooks': [progress_hook],
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': strategy['clients'],
+                        'include_dash_manifest': True,
+                        'include_hls_manifest': True
+                    }
+                }
             })
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([target_url])
             
-            # If we reach here, download was successful
+            # Successful download upload
             print(f"📦 Uploading to Supabase Storage...")
             supabase.table("downloads_queue").update({"status": "uploading", "progress": 100}).eq("id", JOB_ID).execute()
             
@@ -189,14 +194,10 @@ def run_download():
             print(f"✅ Download Finished! {public_url}")
             return
         except Exception as e:
-            last_error = e
-            print(f"DEBUG: Download attempt failed: {e}")
-            if os.path.exists(local_filename):
-                os.remove(local_filename)
-            if os.path.exists("cookies.txt"):
-                os.remove("cookies.txt")
+            print(f"❌ Download attempt failed: {str(e)[:100]}")
+            if os.path.exists(local_filename): os.remove(local_filename)
 
-    raise last_error
+    raise Exception("Download failed across all clients.")
 
 def main():
     if not JOB_ID or not URL:
@@ -212,8 +213,7 @@ def main():
         print(f"❌ Error: {str(e)}")
         update_job("failed", {"error_message": str(e)})
     finally:
-        if os.path.exists("cookies.txt"):
-            os.remove("cookies.txt")
+        if os.path.exists("cookies.txt"): os.remove("cookies.txt")
 
 if __name__ == "__main__":
     main()
