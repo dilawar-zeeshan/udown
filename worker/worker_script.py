@@ -26,7 +26,7 @@ def get_metadata():
         'no_playlist': True,
         'quiet': True,
         'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-        'extractor_args': {'youtube': {'player_client': ['ios']}}
+        'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'ios']}}
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(URL, download=False)
