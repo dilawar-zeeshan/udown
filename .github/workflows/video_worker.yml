@@ -46,4 +46,5 @@ jobs:
           MODE: ${{ github.event.inputs.mode }}
           FORMAT_ID: ${{ github.event.inputs.format_id }}
           SESSION_ID: ${{ github.event.inputs.session_id }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: python worker/worker_script.py

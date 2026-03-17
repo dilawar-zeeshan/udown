@@ -12,6 +12,7 @@ URL = os.getenv("VIDEO_URL")
 MODE = os.getenv("MODE") # info or download
 FORMAT_ID = os.getenv("FORMAT_ID")
 SESSION_ID = os.getenv("SESSION_ID") or "default"
+YOUTUBE_COOKIES = os.getenv("YOUTUBE_COOKIES")
 STORAGE_BUCKET = "video"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -64,25 +65,37 @@ def get_metadata():
             }
         }
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(URL, download=False)
-        metadata = {
-            "title": info.get("title"),
-            "thumbnail": info.get("thumbnail"),
-            "duration": info.get("duration"),
-            "formats": [
-                {
-                    "format_id": f.get("format_id"),
-                    "quality": f.get("format_note") or f.get("resolution"),
-                    "ext": f.get("ext"),
-                    "filesize": f.get("filesize") or f.get("filesize_approx")
-                }
-                for f in info.get("formats", [])
-                if f.get("vcodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "mp4")
-            ]
-        }
-        update_job("awaiting_format", {"video_metadata": metadata})
-        print("✅ Metadata uploaded to Supabase.")
+    
+    cookie_file = None
+    if YOUTUBE_COOKIES:
+        cookie_file = "cookies.txt"
+        with open(cookie_file, "w") as f:
+            f.write(YOUTUBE_COOKIES)
+        ydl_opts['cookiefile'] = cookie_file
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(URL, download=False)
+            metadata = {
+                "title": info.get("title"),
+                "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration"),
+                "formats": [
+                    {
+                        "format_id": f.get("format_id"),
+                        "quality": f.get("format_note") or f.get("resolution"),
+                        "ext": f.get("ext"),
+                        "filesize": f.get("filesize") or f.get("filesize_approx")
+                    }
+                    for f in info.get("formats", [])
+                    if f.get("vcodec") != "none" and (f.get("ext") == "mp4" or f.get("container") == "mp4")
+                ]
+            }
+            update_job("awaiting_format", {"video_metadata": metadata})
+            print("✅ Metadata uploaded to Supabase.")
+    finally:
+        if cookie_file and os.path.exists(cookie_file):
+            os.remove(cookie_file)
 
 def run_download():
     print(f"🚀 Downloading {URL} [Format: {FORMAT_ID}]...")
@@ -111,6 +124,13 @@ def run_download():
         }
     }
     
+    cookie_file = None
+    if YOUTUBE_COOKIES:
+        cookie_file = "cookies_dl.txt"
+        with open(cookie_file, "w") as f:
+            f.write(YOUTUBE_COOKIES)
+        ydl_opts['cookiefile'] = cookie_file
+    
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([URL])
@@ -131,6 +151,8 @@ def run_download():
         print(f"✅ Download Finished! {public_url}")
         
     finally:
+        if cookie_file and os.path.exists(cookie_file):
+            os.remove(cookie_file)
         if os.path.exists(local_filename):
             os.remove(local_filename)
 
