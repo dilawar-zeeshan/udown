@@ -25,8 +25,13 @@ def get_metadata():
     ydl_opts = {
         'no_playlist': True,
         'quiet': True,
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-        'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'ios']}}
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['web_embedded', 'ios', 'tv_embedded', 'android'],
+                'player_skip': ['webpage', 'configs']
+            }
+        }
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(URL, download=False)
@@ -59,8 +64,13 @@ def run_download():
         'format': FORMAT_ID if FORMAT_ID else 'best',
         'outtmpl': local_filename,
         'no_playlist': True,
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-        'extractor_args': {'youtube': {'player_client': ['ios']}}
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['web_embedded', 'ios', 'tv_embedded', 'android'],
+                'player_skip': ['webpage', 'configs']
+            }
+        }
     }
     
     try:
