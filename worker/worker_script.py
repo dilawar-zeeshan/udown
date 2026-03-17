@@ -37,6 +37,17 @@ def update_job(status, data=None):
         payload.update(data)
     supabase.table("downloads_queue").update(payload).eq("id", JOB_ID).execute()
 
+def progress_hook(d):
+    if d['status'] == 'downloading':
+        try:
+            p = d.get('_percent_str', '0%').replace('%','')
+            progress = int(float(p))
+            # Update every 10% to avoid spamming the DB
+            if progress % 10 == 0:
+                supabase.table("downloads_queue").update({"progress": progress}).eq("id", JOB_ID).execute()
+        except:
+            pass
+
 def get_metadata():
     print(f"🔍 Fetching info for {URL}...")
     ydl_opts = {
@@ -84,6 +95,7 @@ def run_download():
         'format': FORMAT_ID if FORMAT_ID else 'best',
         'outtmpl': local_filename,
         'no_playlist': True,
+        'progress_hooks': [progress_hook],
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'extractor_args': {
             'youtube': {
@@ -98,6 +110,9 @@ def run_download():
             ydl.download([URL])
             
         print(f"📦 Uploading to Supabase Storage...")
+        # Mark as uploading
+        supabase.table("downloads_queue").update({"status": "uploading", "progress": 100}).eq("id", JOB_ID).execute()
+        
         with open(local_filename, 'rb') as f:
             supabase.storage.from_(STORAGE_BUCKET).upload(
                 path=storage_path,
