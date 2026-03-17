@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+yt-dlp
+requests
+supabase
+python-dotenv
+python-multipart
