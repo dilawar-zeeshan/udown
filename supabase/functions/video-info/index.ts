@@ -12,10 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json()
+    const { url, session_id } = await req.json()
     if (!url) throw new Error('URL is required')
 
-    // Detect platform
+    // 1. Detect platform
     let platform = 'unknown'
     if (url.includes('youtube.com') || url.includes('youtu.be')) platform = 'YouTube'
     else if (url.includes('instagram.com')) platform = 'Instagram'
@@ -23,7 +23,7 @@ serve(async (req) => {
     else if (url.includes('twitter.com') || url.includes('x.com')) platform = 'Twitter'
     else if (url.includes('facebook.com')) platform = 'Facebook'
 
-    // Rate Limiting Logic
+    // 2. Initialize Supabase
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -31,8 +31,8 @@ serve(async (req) => {
 
     const clientIP = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || 'unknown'
     
-    // Check rate limit (simplified for brevity, should use rate_limits table)
-    const { data: limitData, error: limitError } = await supabase
+    // 3. Rate Limiting Logic (Simplified)
+    const { data: limitData } = await supabase
       .from('rate_limits')
       .select('*')
       .eq('ip', clientIP)
@@ -58,18 +58,19 @@ serve(async (req) => {
       await supabase.from('rate_limits').insert({ ip: clientIP, request_count: 1, last_request: now.toISOString() })
     }
 
-    // Log the download attempt
+    // 4. Log the download attempt
     await supabase.from('downloads_log').insert({
       url,
       platform,
       ip: clientIP
     })
 
-    // 4. Create a Job in the Downloads Queue
+    // 5. Create a Job in the Downloads Queue
     const { data: job, error: jobError } = await supabase
       .from('downloads_queue')
       .insert({
         url,
+        session_id,
         status: 'pending_info'
       })
       .select()
@@ -77,19 +78,21 @@ serve(async (req) => {
 
     if (jobError) throw jobError
 
-    // 5. Trigger GitHub Action
-    const GITHUB_REPO = Deno.env.get('GITHUB_REPO') // e.g., "username/vdownloader"
+    // 6. Trigger GitHub Action
+    const GITHUB_REPO = Deno.env.get('GITHUB_REPO')
     const GH_TOKEN = Deno.env.get('GH_TOKEN')
 
     if (GITHUB_REPO && GH_TOKEN) {
-      console.log(`🚀 Triggering GHA for job ${job.id}`)
+      console.log(`🚀 Triggering GHA for job ${job.id} on repos/${GITHUB_REPO}`)
       try {
-        await fetch(`https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/video_worker.yml/dispatches`, {
+        const ghaUrl = `https://api.github.com/repos/${GITHUB_REPO.trim()}/actions/workflows/video_worker.yml/dispatches`
+        const ghaResponse = await fetch(ghaUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${GH_TOKEN}`,
+            'Authorization': `Bearer ${GH_TOKEN.trim()}`,
             'Accept': 'application/vnd.github.v3+json',
             'Content-Type': 'application/json',
+            'User-Agent': 'Supabase-Edge-Function-VDownloader'
           },
           body: JSON.stringify({
             ref: 'main',
@@ -100,9 +103,18 @@ serve(async (req) => {
             }
           })
         })
+        console.log(`📡 GHA Trigger Status for ${job.id}: ${ghaResponse.status} ${ghaResponse.statusText}`)
+        if (!ghaResponse.ok) {
+          const errorBody = await ghaResponse.text()
+          console.error(`❌ GHA Trigger Failed for ${job.id}: ${errorBody}`)
+        } else {
+          console.log(`✅ GHA Triggered Successfully for ${job.id}`)
+        }
       } catch (e) {
-        console.error('Error triggering GHA:', e)
+        console.error(`💥 Fatal error triggering GHA for ${job.id}:`, e)
       }
+    } else {
+      console.warn('⚠️ GITHUB_REPO or GH_TOKEN missing, skipping GHA trigger.')
     }
 
     return new Response(JSON.stringify({ job_id: job.id }), {

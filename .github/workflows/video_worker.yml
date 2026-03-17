@@ -16,6 +16,9 @@ on:
       format_id:
         description: 'Format ID (for download mode)'
         required: false
+      session_id:
+        description: 'User Session ID for storage cleanup'
+        required: false
 
 jobs:
   process_video:
@@ -42,4 +45,5 @@ jobs:
           VIDEO_URL: ${{ github.event.inputs.url }}
           MODE: ${{ github.event.inputs.mode }}
           FORMAT_ID: ${{ github.event.inputs.format_id }}
+          SESSION_ID: ${{ github.event.inputs.session_id }}
         run: python worker/worker_script.py

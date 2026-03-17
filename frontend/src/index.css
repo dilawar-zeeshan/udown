@@ -1,30 +1,84 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@theme {
+  --color-brand-primary: #3b82f6;
+  --color-brand-secondary: #6366f1;
+  --color-brand-accent: #ec4899;
+  
+  --font-sans: 'Outfit', 'Inter', system-ui, sans-serif;
+  
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 3s ease-in-out infinite;
+  --animate-shake: shake 0.5s ease-in-out;
+  --animate-slide-up: slideUp 0.6s ease-out;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a;
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  @keyframes pulse-soft {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.4; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+@layer base {
+  body {
+    @apply bg-[#0f172a] text-slate-200 antialiased overflow-x-hidden;
+    background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 40%),
+                radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.15), transparent 40%),
+                #0f172a;
+  }
 }
 
-#root {
-  width: 100%;
+@layer components {
+  .glass-card {
+    @apply bg-slate-800/40 backdrop-blur-2xl border border-slate-700/50 shadow-2xl;
+  }
+  
+  .glass-input {
+    @apply bg-slate-900/60 backdrop-blur-md border-2 border-slate-700/50 focus:border-blue-500/50 transition-all outline-none;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black py-4 px-10 rounded-[1.5rem] shadow-xl shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-blue-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }

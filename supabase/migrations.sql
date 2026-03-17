@@ -19,8 +19,9 @@ CREATE TABLE IF NOT EXISTS downloads_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   url TEXT NOT NULL,
   format_id TEXT,
-  status TEXT DEFAULT 'pending_info', -- pending_info, awaiting_format, pending_download, processing, done, failed
-  video_metadata JSONB, -- Stores title, thumbnail, formats list
+  session_id TEXT, -- Added for storage cleanup
+  status TEXT DEFAULT 'pending_info',
+  video_metadata JSONB,
   result_url TEXT,
   error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
