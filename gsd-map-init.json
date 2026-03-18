@@ -1,0 +1,11 @@
+﻿{
+  "mapper_model": "haiku",
+  "commit_docs": true,
+  "search_gitignored": false,
+  "parallelization": true,
+  "codebase_dir": ".planning/codebase",
+  "existing_maps": [],
+  "has_maps": false,
+  "planning_exists": false,
+  "codebase_dir_exists": false
+}
