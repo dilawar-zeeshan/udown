@@ -40,7 +40,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U yt-dlp supabase python-dotenv yt-dlp-ejs
+          pip install -U yt-dlp supabase python-dotenv bgutil-ytdlp-pot-provider yt-dlp-get-pot yt-dlp-ejs
+
+      - name: Start POT Provider Server
+        run: |
+          python -m bgutil_ytdlp_pot_provider server --port 8080 &
+          sleep 5 # Wait for server to start
 
       - name: Run Worker Script
         env:

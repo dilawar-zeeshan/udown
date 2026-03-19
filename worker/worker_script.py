@@ -80,7 +80,8 @@ def get_base_opts():
             'youtube': {
                 'player_client': ['web', 'web_embedded', 'mweb'],
                 'include_dash_manifest': True,
-                'include_hls_manifest': True
+                'include_hls_manifest': True,
+                'po_token': ['auto']
             }
         },
         'noprogress': True,
@@ -139,6 +140,7 @@ def get_metadata():
     except Exception as e:
         print(f"❌ POT Extraction failed: {e}")
         update_job("failed", {"error_message": f"POT Block: {str(e)}"})
+        raise e  # Re-raise to trigger exit(1) in main
 
 def run_download():
     print(f"🚀 [DOWNLOAD] Starting POT-Protected Download for {URL}...")
@@ -175,6 +177,7 @@ def run_download():
     except Exception as e:
         print(f"❌ POT Download failed: {e}")
         update_job("failed", {"error_message": str(e)})
+        raise e  # Re-raise
     finally:
         if os.path.exists(local_filename): os.remove(local_filename)
         if os.path.exists("cookies.txt"): os.remove("cookies.txt")
