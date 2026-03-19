@@ -74,11 +74,11 @@ def get_base_opts():
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
-        'javascript_executable': 'deno',
+        'javascript_executable': '/home/runner/.deno/bin/deno',
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android', 'web_embedded'],
+                'player_client': ['tvhtml5', 'android', 'ios', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -137,8 +137,18 @@ def get_metadata():
             update_job("awaiting_format", {"video_metadata": metadata})
             print(f"✅ SUCCESS! Metadata uploaded with POT protection.")
     except Exception as e:
-        print(f"❌ POT Extraction failed: {e}")
-        update_job("failed", {"error_message": f"POT Block: {str(e)}"})
+        print(f"❌ Extraction failed: {e}")
+        # Diagnostic: Try to list formats to see what YouTube is allowing
+        try:
+            print("🔍 [DIAGNOSTIC] Attempting to list available formats...")
+            opts = get_base_opts()
+            opts['listformats'] = True
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.extract_info(target_url, download=False)
+        except Exception as fe:
+            print(f"🔍 [DIAGNOSTIC] Format listing also failed: {fe}")
+            
+        update_job("failed", {"error_message": f"Download Blocked: {str(e)}"})
         raise e  # Re-raise to trigger exit(1) in main
 
 def run_download():
