@@ -32,20 +32,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Set up Deno
+        run: |
+          curl -fsSL https://deno.land/x/install/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U yt-dlp supabase python-dotenv bgutil-ytdlp-pot-provider yt-dlp-get-pot yt-dlp-ejs
-
-      - name: Start POT Provider Server
-        run: |
-          python -m bgutil_ytdlp_pot_provider server --port 8080 &
-          sleep 5 # Wait for server to start
+          pip install -U https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz
+          pip install -U supabase python-dotenv bgutil-ytdlp-pot-provider
 
       - name: Run Worker Script
         env:
