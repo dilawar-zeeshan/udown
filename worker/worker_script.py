@@ -57,7 +57,7 @@ def expand_url(url):
         
     return url
 
-def get_base_opts():
+def get_base_opts(use_cookies=True):
     # Detailed PATH debug for GHA
     print(f"DEBUG: PATH: {os.environ.get('PATH')}")
     node_path = shutil.which('node')
@@ -85,8 +85,9 @@ def get_base_opts():
         },
         'noprogress': True,
         'no_color': True,
+        'remote_components': 'ejs:github',
     }
-    if YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
+    if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
         try:
             with open("cookies.txt", "w", encoding='utf-8') as f:
@@ -111,45 +112,34 @@ def get_metadata():
         print("CRITICAL: Node.js MISSING.")
 
     try:
-        opts = get_base_opts()
+        # Try 1: Full options with cookies
+        print("DEBUG: Attempt 1 - Full options with cookies...")
+        opts = get_base_opts(use_cookies=True)
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(target_url, download=False)
-            
-            metadata = {
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "duration": info.get("duration"),
-                "formats": []
-            }
-            
-            for f in info.get("formats", []):
-                if f.get("vcodec") != "none":
-                    metadata["formats"].append({
-                        "format_id": f.get("format_id"),
-                        "quality": f.get("format_note") or f.get("resolution"),
-                        "ext": f.get("ext"),
-                        "filesize": f.get("filesize") or f.get("filesize_approx")
-                    })
-            
-            if not metadata["formats"]:
-                raise Exception("POT Provider failed to unblock video formats.")
-                
-            update_job("awaiting_format", {"video_metadata": metadata})
-            print(f"✅ SUCCESS! Metadata uploaded with POT protection.")
     except Exception as e:
-        print(f"❌ Extraction failed: {e}")
-        # Diagnostic: Try to list formats to see what YouTube is allowing
+        print(f"DEBUG: Attempt 1 failed: {e}")
         try:
-            print("🔍 [DIAGNOSTIC] Attempting to list available formats...")
-            opts = get_base_opts()
-            opts['listformats'] = True
+            # Try 2: No cookies, mobile clients (android/ios) are much better here
+            print("DEBUG: Attempt 2 - No cookies, focusing on mobile clients...")
+            opts = get_base_opts(use_cookies=False)
+            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
             with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.extract_info(target_url, download=False)
-        except Exception as fe:
-            print(f"🔍 [DIAGNOSTIC] Format listing also failed: {fe}")
+                info = ydl.extract_info(target_url, download=False)
+        except Exception as e2:
+            print(f"❌ All extraction attempts failed.")
+            # Diagnostic: Try to list formats to see what YouTube is allowing
+            try:
+                print("🔍 [DIAGNOSTIC] Final attempt to list available formats...")
+                opts = get_base_opts(use_cookies=False)
+                opts['listformats'] = True
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.extract_info(target_url, download=False)
+            except:
+                pass
             
-        update_job("failed", {"error_message": f"Download Blocked: {str(e)}"})
-        raise e  # Re-raise to trigger exit(1) in main
+            update_job("failed", {"error_message": f"Download Blocked (Music Video restriction): {str(e2)}"})
+            raise e2
 
 def run_download():
     print(f"🚀 [DOWNLOAD] Starting POT-Protected Download for {URL}...")
