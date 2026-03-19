@@ -19,6 +19,7 @@ STORAGE_BUCKET = "video"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def update_job(status, data=None):
     try:
         payload = {
             "status": status, 
@@ -121,12 +122,11 @@ def get_metadata():
     print(f"🔍 [METADATA] POT-Enabled Discovery for {URL}")
     target_url = expand_url(URL)
     
-    # Verify Node for the logs
+    # Verify Deno for the logs
     try:
-        node_v = subprocess.check_output(["node", "--version"]).decode().strip()
-        print(f"DEBUG: Node Version: {node_v}")
+        print(f"DEBUG: Deno Version: {subprocess.check_output(['/home/runner/.deno/bin/deno', '--version']).decode().strip().splitlines()[0]}")
     except:
-        print("CRITICAL: Node.js MISSING.")
+        print("DEBUG: Deno check failed in script.")
 
     try:
         # Verify Supabase connection
@@ -134,38 +134,63 @@ def get_metadata():
         supabase.table("downloads_queue").select("id").limit(1).execute()
         print("DEBUG: Supabase connection HEALTHY.")
         
+        info = None
         # Try 1: Full options with cookies
-        print("DEBUG: Attempt 1 - Full options with cookies...")
-        opts = get_base_opts(use_cookies=True)
-            if not info.get('formats'):
-                print("DEBUG: Info object found but NO FORMATS identified.")
-                raise Exception("YouTube blocked all formats (Manifest Error)")
+        try:
+            print("DEBUG: Attempt 1 - Full options with cookies...")
+            opts = get_base_opts(use_cookies=True)
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(target_url, download=False)
+        except Exception as e:
+            print(f"DEBUG: Attempt 1 failed: {e}")
+            # Try 2: No cookies, mobile clients (android/ios) are much better here
+            print("DEBUG: Attempt 2 - No cookies, focusing on mobile clients...")
+            opts = get_base_opts(use_cookies=False)
+            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(target_url, download=False)
 
-            metadata = {
-                "title": info.get("title"),
-                "thumbnail": info.get("thumbnail"),
-                "duration": info.get("duration"),
-                "formats": []
-            }
+        if not info or not info.get('formats'):
+            print("DEBUG: No formats found in either attempt.")
+            raise Exception("YouTube blocked all formats (Manifest Error)")
+
+        metadata = {
+            "title": info.get("title"),
+            "thumbnail": info.get("thumbnail"),
+            "duration": info.get("duration"),
+            "formats": []
+        }
+        
+        for f in info.get("formats", []):
+            if f.get("vcodec") != "none":
+                metadata["formats"].append({
+                    "format_id": f.get("format_id"),
+                    "quality": f.get("format_note") or f.get("resolution"),
+                    "ext": f.get("ext"),
+                    "filesize": f.get("filesize") or f.get("filesize_approx")
+                })
+        
+        if not metadata["formats"]:
+            raise Exception("No video formats available for this selection.")
             
-            for f in info.get("formats", []):
-                if f.get("vcodec") != "none":
-                    metadata["formats"].append({
-                        "format_id": f.get("format_id"),
-                        "quality": f.get("format_note") or f.get("resolution"),
-                        "ext": f.get("ext"),
-                        "filesize": f.get("filesize") or f.get("filesize_approx")
-                    })
-            
-            if not metadata["formats"]:
-                raise Exception("No video formats available for this selection.")
-                
-            update_job("awaiting_format", {"video_metadata": metadata})
-            print(f"✅ SUCCESS! Metadata extracted for: {metadata['title']}")
+        update_job("awaiting_format", {"video_metadata": metadata})
+        print(f"✅ SUCCESS! Metadata extracted for: {metadata.get('title')}")
+
     except Exception as e:
         import traceback
         print(f"❌ Extraction failed: {e}")
-        traceback.print_exc()
+        # Diagnostic: Try to list formats to see what YouTube is allowing
+        try:
+            print("🔍 [DIAGNOSTIC] Final attempt to list available formats...")
+            opts = get_base_opts(use_cookies=False)
+            opts['listformats'] = True
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.extract_info(target_url, download=False)
+        except:
+            pass
+        
+        update_job("failed", {"error_message": f"Download Blocked: {str(e)}"})
+        raise e
 
 def run_download():
     print(f"🚀 [DOWNLOAD] Starting POT-Protected Download for {URL}...")
@@ -176,7 +201,7 @@ def run_download():
     storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
     try:
-        opts = get_base_opts()
+        opts = get_base_opts(use_cookies=True)
         opts.update({
             'format': FORMAT_ID if FORMAT_ID else 'best',
             'outtmpl': local_filename,
