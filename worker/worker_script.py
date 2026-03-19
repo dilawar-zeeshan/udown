@@ -71,7 +71,9 @@ def get_base_opts():
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
-        }
+        },
+        'noprogress': True,
+        'no_color': True,
     }
     if YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
