@@ -2,6 +2,7 @@ import os
 import uuid
 import datetime
 import yt_dlp
+import shutil
 import subprocess
 from supabase import create_client, Client
 
