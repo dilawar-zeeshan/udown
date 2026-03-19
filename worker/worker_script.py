@@ -74,19 +74,13 @@ def get_base_opts():
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
-        'javascript_executable': node_path or 'node',
+        'javascript_executable': 'deno',
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['web', 'web_embedded', 'mweb'],
+                'player_client': ['ios', 'android', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
-            },
-            'youtube+GetPOT': {
-                'provider': 'bgutil:http',
-                'bgutil:http': {
-                    'base_url': 'http://localhost:4416'
-                }
             }
         },
         'noprogress': True,
