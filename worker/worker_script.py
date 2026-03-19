@@ -58,14 +58,27 @@ def expand_url(url):
     return url
 
 def get_base_opts():
+    # Detailed PATH debug for GHA
+    print(f"DEBUG: PATH: {os.environ.get('PATH')}")
+    node_path = shutil.which('node')
+    print(f"DEBUG: Found node at: {node_path}")
+    
+    # Verify node can actually run a script
+    try:
+        test_out = subprocess.check_output([node_path or 'node', '-e', 'console.log("HEALTHY")'], timeout=5).decode().strip()
+        print(f"DEBUG: Node execution test: {test_out}")
+    except Exception as e:
+        print(f"DEBUG: Node execution test FAILED: {str(e)}")
+
     opts = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
+        'javascript_executable': node_path or 'node',
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded'],
+                'player_client': ['web', 'web_embedded', 'mweb'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
