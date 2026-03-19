@@ -58,21 +58,14 @@ def expand_url(url):
     return url
 
 def get_base_opts():
-    # Detailed PATH debug for GHA
-    print(f"DEBUG: PATH: {os.environ.get('PATH')}")
-    node_path = shutil.which('node')
-    print(f"DEBUG: Found node at: {node_path}")
-    
-    # Try alternate player clients that are often more stable in cloud environments
     opts = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
-        'javascript_executable': node_path or 'node',
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web_embedded', 'tvhtml5'],
+                'player_client': ['mweb', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }

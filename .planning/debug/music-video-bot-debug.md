@@ -31,17 +31,19 @@
 #### Hypothesis 2: Cookie Format/Path Issue -> FIXED
 - Added UTF-8 encoding and existence checks for cookie writing.
 
-#### Hypothesis 3: Playlist URL complexity -> FIXED
-- Added URL cleaning logic to strip `&list=...` and other parameters from YouTube watch URLs.
+#### Hypothesis 4: JS Runtime Detection Failure -> CONFIRMED
+- `yt-dlp` reports `JS runtimes: none` despite `node` being present in `/opt/hostedtoolcache/...`.
+- `yt_dlp_ejs` is installed but lacks a handler to solve signatures.
+- Without signature solving, YouTube blocks all video formats, returning only images/thumbnails.
 
 ### 6. Actions Taken
-- Updated `worker/worker_script.py` with the above fixes.
-- Added global exception handling to report tracebacks to Supabase/Logs.
-- Enabled `verbose` mode for `yt-dlp`.
-- Removed redundant `downloader-worker/worker.py`.
+- Fixed `shutil` import.
+- Added absolute path discovery for `node`.
+- Removed broken `GetPOT` plugin.
+- Added `yt-dlp-ejs` (needs JS runtime to work).
 
-### 7. Resolution
-🎯 **The worker was not properly stripping playlist parameters from music video URLs and lacked internal logic to consume the `YOUTUBE_COOKIES` secret provided in GitHub Actions.**
+### 7. Resolution (In Progress)
+🎯 **The worker is effectively blind to video formats because it cannot solve the JavaScript signature challenges.** We need to find a way to make `yt-dlp` see the `node` runtime or use a client that doesn't require complex signatures.
 
 ---
 *Created: 2026-03-19*
