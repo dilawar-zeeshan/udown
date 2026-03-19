@@ -85,7 +85,7 @@ def get_base_opts():
             'youtube+GetPOT': {
                 'provider': 'bgutil:http',
                 'bgutil:http': {
-                    'url': 'http://localhost:4416'
+                    'base_url': 'http://localhost:4416'
                 }
             }
         },
