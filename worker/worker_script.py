@@ -80,8 +80,10 @@ def get_base_opts():
             'youtube': {
                 'player_client': ['web', 'web_embedded', 'mweb'],
                 'include_dash_manifest': True,
-                'include_hls_manifest': True,
-                'po_token': ['auto']
+                'include_hls_manifest': True
+            },
+            'youtube+GetPOT': {
+                'provider': 'bgutil:http'
             }
         },
         'noprogress': True,
