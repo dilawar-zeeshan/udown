@@ -83,7 +83,10 @@ def get_base_opts():
                 'include_hls_manifest': True
             },
             'youtube+GetPOT': {
-                'provider': 'bgutil:http'
+                'provider': 'bgutil:http',
+                'bgutil:http': {
+                    'url': 'http://localhost:4416'
+                }
             }
         },
         'noprogress': True,
