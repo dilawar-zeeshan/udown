@@ -67,12 +67,9 @@ def get_base_opts():
         # Enable the POT providers
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'web_embedded'],
+                'player_client': ['android', 'web_embedded'],
                 'include_dash_manifest': True,
-                'include_hls_manifest': True,
-                # These extractor-args trigger the POT provider plugins
-                'po_token': ['auto'],
-                'data_sync_id': ['auto']
+                'include_hls_manifest': True
             }
         }
     }
