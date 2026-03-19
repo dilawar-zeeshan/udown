@@ -1,0 +1,21 @@
+﻿{
+  "config": {
+    "model_profile": "balanced",
+    "commit_docs": true,
+    "search_gitignored": false,
+    "branching_strategy": "none",
+    "phase_branch_template": "gsd/phase-{phase}-{slug}",
+    "milestone_branch_template": "gsd/{milestone}-{slug}",
+    "research": false,
+    "plan_checker": true,
+    "verifier": true,
+    "nyquist_validation": true,
+    "parallelization": true,
+    "brave_search": false,
+    "model_overrides": null
+  },
+  "state_raw": "# Project State\n\n## Project Reference\n\nSee: .planning/PROJECT.md (updated 2026-03-18)\n\n**Core value:** Reliable, platform-agnostic video extraction delivered through a fast and frictionless UI.\n**Current focus:** Phase 1 (Yet to start)\n\n---\n\n## Progress\n\n- [ ] Phase 1: Infrastructure reliability\n- [ ] Phase 2: End-to-End Download Delivery\n- [ ] Phase 3: Access Control\n",
+  "state_exists": true,
+  "roadmap_exists": true,
+  "config_exists": true
+}
