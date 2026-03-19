@@ -57,14 +57,16 @@ def expand_url(url):
     return url
 
 def get_base_opts():
-    """Options optimized for POT providers and signature solving."""
+    # Find node path explicitly for GHA
+    node_path = shutil.which('node')
+    print(f"DEBUG: Node Path: {node_path}")
+    
     opts = {
         'no_playlist': True,
         'quiet': False,
-        'verbose': True, # Enable verbose for deep GitHub Actions debugging
-        'javascript_executable': 'node',
+        'verbose': True,
+        'javascript_executable': node_path or 'node',
         'nocheckcertificate': True,
-        # Enable the POT providers
         'extractor_args': {
             'youtube': {
                 'player_client': ['android', 'web_embedded'],

@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U yt-dlp supabase python-dotenv bgutil-ytdlp-pot-provider yt-dlp-ejs
+          pip install -U yt-dlp supabase python-dotenv yt-dlp-ejs
 
       - name: Run Worker Script
         env:
