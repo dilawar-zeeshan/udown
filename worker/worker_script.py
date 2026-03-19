@@ -19,14 +19,18 @@ STORAGE_BUCKET = "video"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def update_job(status, data=None):
-    payload = {
-        "status": status, 
-        "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
-    }
-    if data:
-        payload.update(data)
-    supabase.table("downloads_queue").update(payload).eq("id", JOB_ID).execute()
+    try:
+        payload = {
+            "status": status, 
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
+        if data:
+            payload.update(data)
+        print(f"DEBUG: Updating job {JOB_ID} to {status}...")
+        res = supabase.table("downloads_queue").update(payload).eq("id", JOB_ID).execute()
+        print(f"DEBUG: Supabase update response: {res}")
+    except Exception as e:
+        print(f"ERROR: Failed to update Supabase: {e}")
 
 def progress_hook(d):
     if d['status'] == 'downloading':
@@ -125,34 +129,43 @@ def get_metadata():
         print("CRITICAL: Node.js MISSING.")
 
     try:
+        # Verify Supabase connection
+        print(f"DEBUG: Testing Supabase connection to {SUPABASE_URL}...")
+        supabase.table("downloads_queue").select("id").limit(1).execute()
+        print("DEBUG: Supabase connection HEALTHY.")
+        
         # Try 1: Full options with cookies
         print("DEBUG: Attempt 1 - Full options with cookies...")
         opts = get_base_opts(use_cookies=True)
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
-    except Exception as e:
-        print(f"DEBUG: Attempt 1 failed: {e}")
-        try:
-            # Try 2: No cookies, mobile clients (android/ios) are much better here
-            print("DEBUG: Attempt 2 - No cookies, focusing on mobile clients...")
-            opts = get_base_opts(use_cookies=False)
-            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(target_url, download=False)
-        except Exception as e2:
-            print(f"❌ All extraction attempts failed.")
-            # Diagnostic: Try to list formats to see what YouTube is allowing
-            try:
-                print("🔍 [DIAGNOSTIC] Final attempt to list available formats...")
-                opts = get_base_opts(use_cookies=False)
-                opts['listformats'] = True
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    ydl.extract_info(target_url, download=False)
-            except:
-                pass
+            if not info.get('formats'):
+                print("DEBUG: Info object found but NO FORMATS identified.")
+                raise Exception("YouTube blocked all formats (Manifest Error)")
+
+            metadata = {
+                "title": info.get("title"),
+                "thumbnail": info.get("thumbnail"),
+                "duration": info.get("duration"),
+                "formats": []
+            }
             
-            update_job("failed", {"error_message": f"Download Blocked (Music Video restriction): {str(e2)}"})
-            raise e2
+            for f in info.get("formats", []):
+                if f.get("vcodec") != "none":
+                    metadata["formats"].append({
+                        "format_id": f.get("format_id"),
+                        "quality": f.get("format_note") or f.get("resolution"),
+                        "ext": f.get("ext"),
+                        "filesize": f.get("filesize") or f.get("filesize_approx")
+                    })
+            
+            if not metadata["formats"]:
+                raise Exception("No video formats available for this selection.")
+                
+            update_job("awaiting_format", {"video_metadata": metadata})
+            print(f"✅ SUCCESS! Metadata extracted for: {metadata['title']}")
+    except Exception as e:
+        import traceback
+        print(f"❌ Extraction failed: {e}")
+        traceback.print_exc()
 
 def run_download():
     print(f"🚀 [DOWNLOAD] Starting POT-Protected Download for {URL}...")
