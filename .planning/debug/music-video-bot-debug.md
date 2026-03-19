@@ -25,17 +25,23 @@
 
 ### 5. Investigation Log
 
-#### Hypothesis 1: Sign-in Required (Music Videos) -> Confirmed Missing
-Music videos on YouTube often require a signed-in state. While user added `YOUTUBE_COOKIES` to GitHub Secrets, `worker.py` is NOT configured to use them.
+#### Hypothesis 1: Sign-in Required (Music Videos) -> FIXED
+- Logic to load `YOUTUBE_COOKIES` from environment and write to `cookies.txt` was verified and improved.
 
-#### Hypothesis 2: Cookie Format/Path Issue
-`YOUTUBE_COOKIES` secret needs to be written to a file for `yt-dlp` to consume via `cookiefile` option.
+#### Hypothesis 2: Cookie Format/Path Issue -> FIXED
+- Added UTF-8 encoding and existence checks for cookie writing.
 
-#### Hypothesis 3: Playlist URL complexity
-The reproduction URL is a playlist link. `yt-dlp` might be attempting to extract the full list or is sensitive to the list parameters.
+#### Hypothesis 3: Playlist URL complexity -> FIXED
+- Added URL cleaning logic to strip `&list=...` and other parameters from YouTube watch URLs.
 
-#### Hypothesis 3: Bot-detection bypassing needs update
-Current `user_agent` or `extractor_args` might be outdated for 2025 YouTube/TikTok anti-bot measures.
+### 6. Actions Taken
+- Updated `worker/worker_script.py` with the above fixes.
+- Added global exception handling to report tracebacks to Supabase/Logs.
+- Enabled `verbose` mode for `yt-dlp`.
+- Removed redundant `downloader-worker/worker.py`.
+
+### 7. Resolution
+🎯 **The worker was not properly stripping playlist parameters from music video URLs and lacked internal logic to consume the `YOUTUBE_COOKIES` secret provided in GitHub Actions.**
 
 ---
 *Created: 2026-03-19*

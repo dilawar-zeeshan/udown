@@ -41,6 +41,19 @@ def expand_url(url):
     if "youtu.be/" in url:
         video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
         return f"https://www.youtube.com/watch?v={video_id}"
+    
+    # Strip playlist parameters for YouTube
+    if "youtube.com/watch" in url:
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        u = urlparse(url)
+        query = parse_qs(u.query)
+        # Keep only 'v' parameter
+        new_query = {}
+        if 'v' in query:
+            new_query['v'] = query['v']
+        u = u._replace(query=urlencode(new_query, doseq=True))
+        return urlunparse(u)
+        
     return url
 
 def get_base_opts():
@@ -48,7 +61,7 @@ def get_base_opts():
     opts = {
         'no_playlist': True,
         'quiet': False,
-        'verbose': True,
+        'verbose': True, # Enable verbose for deep GitHub Actions debugging
         'javascript_executable': 'node',
         'nocheckcertificate': True,
         # Enable the POT providers
@@ -63,10 +76,17 @@ def get_base_opts():
             }
         }
     }
-    if YOUTUBE_COOKIES:
-        with open("cookies.txt", "w") as f:
-            f.write(YOUTUBE_COOKIES)
-        opts['cookiefile'] = "cookies.txt"
+    if YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
+        print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
+        try:
+            with open("cookies.txt", "w", encoding='utf-8') as f:
+                f.write(YOUTUBE_COOKIES)
+            opts['cookiefile'] = "cookies.txt"
+            print("DEBUG: cookies.txt written successfully.")
+        except Exception as e:
+            print(f"ERROR Writing cookies: {e}")
+    else:
+        print("DEBUG: No YOUTUBE_COOKIES secret found or too short.")
     return opts
 
 def get_metadata():
@@ -150,13 +170,29 @@ def run_download():
         if os.path.exists("cookies.txt"): os.remove("cookies.txt")
 
 def main():
-    if not JOB_ID or not URL: return
+    if not JOB_ID or not URL: 
+        print("CRITICAL: Missing JOB_ID or VIDEO_URL environment variables.")
+        return
+        
     try:
-        if MODE == "info": get_metadata()
-        else: run_download()
+        print(f"--- STARTING WORKER [Job: {JOB_ID}] ---")
+        if MODE == "info": 
+            get_metadata()
+        else: 
+            run_download()
+        print("--- WORKER FINISHED SUCCESSFULLY ---")
     except Exception as e:
-        update_job("failed", {"error_message": str(e)})
+        import traceback
+        error_msg = f"Fatal Worker Crash: {str(e)}\n{traceback.format_exc()}"
+        print(f"CRITICAL: {error_msg}")
+        try:
+            update_job("failed", {"error_message": error_msg})
+        except:
+            print("CRITICAL: Failed to update Supabase after crash.")
+        exit(1) # Ensure GitHub Action reflects failure
     finally:
-        if os.path.exists("cookies.txt"): os.remove("cookies.txt")
+        if os.path.exists("cookies.txt"): 
+            os.remove("cookies.txt")
 
-if __name__ == "__main__": main()
+if __name__ == "__main__": 
+    main()
