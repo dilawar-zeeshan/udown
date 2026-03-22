@@ -75,7 +75,7 @@ def get_base_opts(use_cookies=True):
     except Exception as e:
         print(f"DEBUG: Node execution test FAILED: {str(e)}")
 
-    opts = {
+    opts: dict = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
@@ -90,7 +90,6 @@ def get_base_opts(use_cookies=True):
         },
         'noprogress': True,
         'no_color': True,
-        'remote_components': {'ejs:github'},
     }
     
     # Configure GetPOT with local script if path found in workflow
@@ -108,30 +107,15 @@ def get_base_opts(use_cookies=True):
     if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
         try:
-            raw_cookies = YOUTUBE_COOKIES.strip()
-            if "Netscape" not in raw_cookies and "\t" not in raw_cookies and "=" in raw_cookies:
-                # Convert raw string to Netscape format
-                import time
-                expire = int(time.time()) + 31536000
-                netscape_lines = ["# Netscape HTTP Cookie File\n"]
-                for str_pair in raw_cookies.split(";"):
-                    str_pair = str_pair.strip()
-                    if not str_pair or "=" not in str_pair: continue
-                    k, v = str_pair.split("=", 1)
-                    prefix = "#HttpOnly_.youtube.com" if k.startswith("__Secure") else ".youtube.com"
-                    netscape_lines.append(f"{prefix}\tTRUE\t/\tTRUE\t{expire}\t{k}\t{v}\n")
-                with open("cookies.txt", "w", encoding="utf-8") as f:
-                    f.writelines(netscape_lines)
-                print("DEBUG: Converted raw cookies string to Netscape format.")
-            else:
-                with open("cookies.txt", "w", encoding='utf-8') as f:
-                    f.write(raw_cookies)
-                print("DEBUG: cookies.txt written successfully from Netscape format.")
+            with open("cookies.txt", "w", encoding='utf-8') as f:
+                f.write(YOUTUBE_COOKIES)
             opts['cookiefile'] = "cookies.txt"
+            print("DEBUG: cookies.txt written successfully.")
         except Exception as e:
             print(f"ERROR Writing cookies: {e}")
     else:
         print("DEBUG: No cookies injected (either missing or use_cookies=False).")
+    return opts
 
 def get_metadata():
     print(f"🔍 [METADATA] POT-Enabled Discovery for {URL}")
