@@ -75,7 +75,7 @@ def get_base_opts(use_cookies=True):
     except Exception as e:
         print(f"DEBUG: Node execution test FAILED: {str(e)}")
 
-    opts: dict = {
+    opts = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
@@ -90,12 +90,14 @@ def get_base_opts(use_cookies=True):
         },
         'noprogress': True,
         'no_color': True,
+        'remote_components': {'ejs:github'},
     }
     
     # Configure GetPOT with local script if path found in workflow
     bgutil_script = os.getenv("BGUTIL_SCRIPT_PATH")
     if bgutil_script and os.path.exists(bgutil_script):
         print(f"DEBUG: Using local BGUTIL script at {bgutil_script}")
+        if 'extractor_args' not in opts: opts['extractor_args'] = {}
         opts['extractor_args']['youtube+GetPOT'] = {
             'provider': 'bgutil:script-deno',
             'bgutil:script-deno': {
@@ -103,18 +105,17 @@ def get_base_opts(use_cookies=True):
             }
         }
     
-    
     if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
         try:
             with open("cookies.txt", "w", encoding='utf-8') as f:
-                f.write(YOUTUBE_COOKIES)
+                f.write(YOUTUBE_COOKIES.strip())
             opts['cookiefile'] = "cookies.txt"
             print("DEBUG: cookies.txt written successfully.")
         except Exception as e:
             print(f"ERROR Writing cookies: {e}")
     else:
-        print("DEBUG: No cookies injected (either missing or use_cookies=False).")
+        print("DEBUG: No YOUTUBE_COOKIES secret found or too short.")
     return opts
 
 def get_metadata():
@@ -134,20 +135,16 @@ def get_metadata():
         print("DEBUG: Supabase connection HEALTHY.")
         
         info = None
-        # Try 1: Best chance with prioritized clients and cookies
+        # Try 1: Full options with cookies
         try:
-            print("DEBUG: Attempting metadata extraction with TV/Mobile clients...")
-            opts = get_base_opts()
+            print("DEBUG: Attempt 1 - Full options with cookies...")
+            opts = get_base_opts(use_cookies=True)
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
         except Exception as e:
-            print(f"DEBUG: Primary attempt failed: {e}")
-            # Final attempt: no cookies, fallback clients
-            print("DEBUG: Final fallback - Retry without cookies using iOS/Android clients...")
-            import os
-            if os.path.exists("cookies.txt"):
-                os.remove("cookies.txt")
-            
+            print(f"DEBUG: Attempt 1 failed: {e}")
+            # Try 2: No cookies, mobile clients (android/ios) are much better here
+            print("DEBUG: Attempt 2 - No cookies, focusing on mobile clients...")
             opts = get_base_opts(use_cookies=False)
             opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -204,34 +201,18 @@ def run_download():
     storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
     try:
-        opts = get_base_opts()
+        opts = get_base_opts(use_cookies=True)
+        # Inject sound fix and ffmpeg merge
+        format_spec = f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best"
         opts.update({
-            'format': f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best",
+            'format': format_spec,
             'merge_output_format': 'mp4',
             'outtmpl': local_filename,
             'progress_hooks': [progress_hook]
         })
         
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([target_url])
-        except Exception as retry_e:
-            print(f"DEBUG: Primary download attempt failed: {retry_e}")
-            print("DEBUG: Retrying download without cookies...")
-            import os
-            if os.path.exists("cookies.txt"):
-                os.remove("cookies.txt")
-            opts = get_base_opts(use_cookies=False)
-            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
-            opts.update({
-                'format': f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best",
-                'merge_output_format': 'mp4',
-                'outtmpl': local_filename,
-                'progress_hooks': [progress_hook]
-            })
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([target_url])
-
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([target_url])
         
         print(f"📦 Uploading Final Video...")
         supabase.table("downloads_queue").update({"status": "uploading", "progress": 100}).eq("id", JOB_ID).execute()
