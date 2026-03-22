@@ -75,7 +75,7 @@ def get_base_opts(use_cookies=True):
     except Exception as e:
         print(f"DEBUG: Node execution test FAILED: {str(e)}")
 
-        opts = {
+    opts = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
@@ -203,7 +203,7 @@ def run_download():
     storage_path = f"temp/{SESSION_ID}/{JOB_ID}.mp4"
     
     try:
-        opts = get_base_opts(use_cookies=True)
+        opts = get_base_opts()
         opts.update({
             'format': f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best",
             'merge_output_format': 'mp4',

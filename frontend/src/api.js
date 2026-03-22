@@ -21,7 +21,7 @@ const restApi = axios.create({
   }
 });
 
-const pollJob = async (jobId, targetStatus, onProgress, maxAttempts = 30) => {
+const pollJob = async (jobId, targetStatus, onProgress, maxAttempts = 150) => {
   for (let i = 0; i < maxAttempts; i++) {
     const { data } = await restApi.get(`/downloads_queue?id=eq.${jobId}&select=*`);
     const job = data[0];
