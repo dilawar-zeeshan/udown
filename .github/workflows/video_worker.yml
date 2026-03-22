@@ -49,16 +49,15 @@ jobs:
           pip install --force-reinstall git+https://github.com/yt-dlp/yt-dlp.git@master
           pip install -U supabase python-dotenv bgutil-ytdlp-pot-provider yt-dlp-get-pot
           
-          # Find the bgutil script path without importing
-          BGUTIL_LOC=$(pip show bgutil-ytdlp-pot-provider | grep Location | cut -d' ' -f2)
-          # Try to find the exact file
-          SCRIPT_PATH=$(find $BGUTIL_LOC -name generate_once.ts | head -n 1)
-          if [ -z "$SCRIPT_PATH" ]; then
-            echo "BGUTIL_SCRIPT_PATH not found"
-          else
-            echo "Found Script: $SCRIPT_PATH"
-            echo "BGUTIL_SCRIPT_PATH=$SCRIPT_PATH" >> $GITHUB_ENV
-          fi
+          # Clone the POT provider server to get the TS script since pip only installs python bindings
+          git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git pot-server
+          cd pot-server/server
+          npm install
+          cd ../..
+          
+          SCRIPT_PATH="$(pwd)/pot-server/server/src/generate_once.ts"
+          echo "Found Script: $SCRIPT_PATH"
+          echo "BGUTIL_SCRIPT_PATH=$SCRIPT_PATH" >> $GITHUB_ENV
           
           python -m yt_dlp --version
 
