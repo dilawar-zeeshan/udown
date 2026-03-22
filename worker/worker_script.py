@@ -75,7 +75,7 @@ def get_base_opts(use_cookies=True):
     except Exception as e:
         print(f"DEBUG: Node execution test FAILED: {str(e)}")
 
-    opts = {
+        opts = {
         'no_playlist': True,
         'quiet': False,
         'verbose': True,
@@ -83,7 +83,7 @@ def get_base_opts(use_cookies=True):
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['tvhtml5', 'android', 'ios', 'web_embedded'],
+                'player_client': ['tvhtml5', 'android'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -105,7 +105,7 @@ def get_base_opts(use_cookies=True):
             }
         }
     
-    if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
+    if YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
         try:
             with open("cookies.txt", "w", encoding='utf-8') as f:
@@ -115,7 +115,7 @@ def get_base_opts(use_cookies=True):
         except Exception as e:
             print(f"ERROR Writing cookies: {e}")
     else:
-        print("DEBUG: No YOUTUBE_COOKIES secret found or too short.")
+        print("DEBUG: No YOUTUBE_COOKIES secret found in environment.")
     return opts
 
 def get_metadata():
@@ -135,18 +135,20 @@ def get_metadata():
         print("DEBUG: Supabase connection HEALTHY.")
         
         info = None
-        # Try 1: Full options with cookies
+        # Try 1: Best chance with prioritized clients and cookies
         try:
-            print("DEBUG: Attempt 1 - Full options with cookies...")
-            opts = get_base_opts(use_cookies=True)
+            print("DEBUG: Attempting metadata extraction with TV/Mobile clients...")
+            opts = get_base_opts()
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
         except Exception as e:
-            print(f"DEBUG: Attempt 1 failed: {e}")
-            # Try 2: No cookies, mobile clients (android/ios) are much better here
-            print("DEBUG: Attempt 2 - No cookies, focusing on mobile clients...")
-            opts = get_base_opts(use_cookies=False)
-            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
+            print(f"DEBUG: Primary attempt failed: {e}")
+            # Final attempt: no cookies, tv-only
+            print("DEBUG: Final fallback - TV client only...")
+            opts = get_base_opts()
+            opts['extractor_args']['youtube']['player_client'] = ['tvhtml5']
+            # Remove cookies for fallback if they might be causing issues
+            if 'cookiefile' in opts: del opts['cookiefile']
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
 
