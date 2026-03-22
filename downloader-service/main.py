@@ -7,9 +7,19 @@ import shutil
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+from fastapi.middleware.cors import CORSMiddleware
+
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Supabase configuration (Must be set in VM environment variables)
 SUPABASE_URL = os.getenv("SUPABASE_URL")
