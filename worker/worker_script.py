@@ -83,7 +83,7 @@ def get_base_opts(use_cookies=True):
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android', 'web'],
+                'player_client': ['tvhtml5', 'android'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
