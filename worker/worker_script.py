@@ -203,7 +203,8 @@ def run_download():
     try:
         opts = get_base_opts(use_cookies=True)
         opts.update({
-            'format': FORMAT_ID if FORMAT_ID else 'best',
+            'format': f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best",
+            'merge_output_format': 'mp4',
             'outtmpl': local_filename,
             'progress_hooks': [progress_hook]
         })

@@ -73,7 +73,8 @@ async def prepare_download(url: str, format_id: str, background_tasks: Backgroun
     storage_path = f"downloads/{local_filename}"
 
     ydl_opts = {
-        'format': format_id,
+        'format': f"{format_id}+bestaudio/best" if format_id else "best",
+        'merge_output_format': 'mp4',
         'outtmpl': local_filename,
         'no_playlist': True,
         'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
