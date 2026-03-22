@@ -93,14 +93,6 @@ def get_base_opts(use_cookies=True):
         'remote_components': {'ejs:github'},
     }
     
-    # Configure GetPOT with local script if path found in workflow
-    bgutil_script = os.getenv("BGUTIL_SCRIPT_PATH")
-    if bgutil_script and os.path.exists(bgutil_script):
-        print(f"DEBUG: Using local BGUTIL script at {bgutil_script}")
-        if 'extractor_args' not in opts: opts['extractor_args'] = {}
-        opts['extractor_args']['youtubepot-bgutilscript'] = {
-            'script_path': [bgutil_script]
-        }
     
     if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
         print(f"DEBUG: Found YOUTUBE_COOKIES secret (Length: {len(YOUTUBE_COOKIES)})")
