@@ -83,7 +83,7 @@ def get_base_opts(use_cookies=True):
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['tvhtml5', 'android'],
+                'player_client': ['tvhtml5', 'android', 'ios', 'web_embedded'],
                 'include_dash_manifest': True,
                 'include_hls_manifest': True
             }
@@ -92,6 +92,17 @@ def get_base_opts(use_cookies=True):
         'no_color': True,
         'remote_components': {'ejs:github'},
     }
+    
+    # Configure GetPOT with local script if path found in workflow
+    bgutil_script = os.getenv("BGUTIL_SCRIPT_PATH")
+    if bgutil_script and os.path.exists(bgutil_script):
+        print(f"DEBUG: Using local BGUTIL script at {bgutil_script}")
+        opts['extractor_args']['youtube+GetPOT'] = {
+            'provider': 'bgutil:script-deno',
+            'bgutil:script-deno': {
+                'script_path': bgutil_script
+            }
+        }
     
     
     if use_cookies and YOUTUBE_COOKIES and len(YOUTUBE_COOKIES.strip()) > 10:
