@@ -162,6 +162,7 @@ def get_metadata():
                 os.remove("cookies.txt")
             
             opts = get_base_opts(use_cookies=False)
+            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
 
@@ -234,6 +235,7 @@ def run_download():
             if os.path.exists("cookies.txt"):
                 os.remove("cookies.txt")
             opts = get_base_opts(use_cookies=False)
+            opts['extractor_args']['youtube']['player_client'] = ['android', 'ios']
             opts.update({
                 'format': f"{FORMAT_ID}+bestaudio/best" if FORMAT_ID else "best",
                 'merge_output_format': 'mp4',
